@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 OOREDOO ALGÉRIE - PRÉDICTION DE CHURN AVEC ANALYSE DE SENTIMENT</title>
+
+    <!-- Plotly -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+         :root {
+            --ooredoo-red: #E30613;
+            --ooredoo-dark-red: #C40511;
+            --light-bg: #f8f9fa;
+            --positive-green: #4caf50;
+            --negative-red: #f44336;
+            --neutral-orange: #ff9800;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            color: var(--ooredoo-red) !important;
+        }
+        
+        .main-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin-top: 20px;
+        }
+        
+        .section-title {
+            color: var(--ooredoo-red);
+            border-bottom: 3px solid var(--ooredoo-red);
+            padding-bottom: 10px;
+            margin: 30px 0 20px 0;
+        }
+        
+        .widget-card {
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            background: var(--light-bg);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .widget-card::before {
+            content: '';
+            position: absolute;
+            left: -2px;
+            top: 10%;
+            height: 80%;
+            width: 4px;
+            background: var(--ooredoo-red);
+            border-radius: 2px;
+        }
+        
+        .widget-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .slider-container {
+            margin: 20px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .slider-title {
+            font-weight: 700;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .slider-value {
+            font-weight: bold;
+            color: var(--ooredoo-red);
+            font-size: 18px;
+            min-width: 60px;
+            text-align: right;
+        }
+        
+        .slider-grid {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 10px;
+            -webkit-appearance: none;
+            background: linear-gradient(to right, #e9ecef, #dee2e6);
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--ooredoo-red);
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 3px 8px rgba(227, 6, 19, 0.3);
+        }
+        
+        .tick-marks {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            padding: 0 12px;
+        }
+        
+        .tick-mark {
+            width: 1px;
+            height: 10px;
+            background: #adb5bd;
+            position: relative;
+        }
+        
+        .tick-mark.major {
+            height: 15px;
+            background: #6c757d;
+        }
+        
+        .tick-label {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #6c757d;
+            white-space: nowrap;
+        }
+        
+        .tab-container {
+            margin: 20px 0;
+        }
+        
+        .nav-tabs .nav-link {
+            color: #495057;
+            font-weight: 600;
+            padding: 12px 25px;
+            border: none;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: var(--ooredoo-red);
+            background: transparent;
+            border-bottom: 3px solid var(--ooredoo-red);
+        }
+        
+        .tab-content {
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .commentaire-input {
+            width: 100%;
+            min-height: 150px;
+            padding: 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+            resize: vertical;
+            transition: all 0.3s ease;
+        }
+        
+        .commentaire-input:focus {
+            border-color: var(--ooredoo-red);
+            box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.1);
+            outline: none;
+        }
+        
+        .language-badges {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        
+        .language-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .btn-ooredoo {
+            background: linear-gradient(135deg, var(--ooredoo-red) 0%, var(--ooredoo-dark-red) 100%);
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-ooredoo::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .btn-ooredoo:hover::after {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .btn-ooredoo:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(227, 6, 19, 0.3);
+            color: white;
+        }
+        
+        .btn-sentiment {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            padding: 12px 25px;
+            font-size: 16px;
+        }
+        
+        .result-card {
+            border-radius: 12px;
+            padding: 30px;
+            margin: 25px 0;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.6s ease;
+            border: 2px solid transparent;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .high-risk {
+            background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+            border-color: #f44336;
+        }
+        
+        .medium-risk {
+            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+            border-color: #ff9800;
+        }
+        
+        .low-risk {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border-color: #4caf50;
+        }
+        
+        .risk-score {
+            font-size: 82px;
+            font-weight: 900;
+            text-align: center;
+            line-height: 1;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            margin: 10px 0;
+        }
+        
+        .risk-level {
+            font-size: 32px;
+            font-weight: 800;
+            text-align: center;
+            margin: 15px 0;
+            letter-spacing: 0.5px;
+        }
+        
+        .gauge-container {
+            height: 320px;
+            margin: 25px 0;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .sentiment-result {
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            background: white;
+            border-left: 6px solid;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        .sentiment-positive {
+            border-left-color: var(--positive-green);
+            background: linear-gradient(to right, #e8f5e9, white);
+        }
+        
+        .sentiment-negative {
+            border-left-color: var(--negative-red);
+            background: linear-gradient(to right, #ffebee, white);
+        }
+        
+        .sentiment-neutral {
+            border-left-color: var(--neutral-orange);
+            background: linear-gradient(to right, #fff3e0, white);
+        }
+        
+        .factor-list {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .factor-list li {
+            padding: 12px 15px;
+            margin: 8px 0;
+            border-radius: 8px;
+            background: white;
+            border-left: 4px solid;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        .factor-positive {
+            border-left-color: var(--positive-green);
+        }
+        
+        .factor-negative {
+            border-left-color: var(--negative-red);
+        }
+        
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .action-card {
+            padding: 20px;
+            border-radius: 10px;
+            background: white;
+            border: 1px solid #dee2e6;
+            transition: all 0.3s ease;
+        }
+        
+        .action-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            border-color: var(--ooredoo-red);
+        }
+        
+        .example-card {
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border: 2px solid;
+            background: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .example-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .example-high {
+            border-color: #f44336;
+        }
+        
+        .example-medium {
+            border-color: #ff9800;
+        }
+        
+        .example-low {
+            border-color: #4caf50;
+        }
+        
+        footer {
+            margin-top: 50px;
+            padding: 25px;
+            background: linear-gradient(135deg, #343a40 0%, #212529 100%);
+            color: white;
+            border-radius: 12px;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 15px;
+            }
+            .risk-score {
+                font-size: 56px;
+            }
+            .risk-level {
+                font-size: 24px;
+            }
+            .action-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-satellite-dish fa-2x"></i>
+                <span class="ms-2">OOREDOO ALGÉRIE - PRÉDICTION DE CHURN AVEC ANALYSE DE SENTIMENT</span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="text-center my-4">
+            <h1 class="display-5 fw-bold" style="color: var(--ooredoo-red);">
+                <i class="fas fa-chart-line"></i> 🔮 PRÉDICTION DE CHURN INTELLIGENTE
+            </h1>
+            <p class="lead">Analyse de sentiment multi-langues + prédiction de risque d'attrition</p>
+        </div>
+
+        <!-- Main Container -->
+        <div class="main-container">
+            <!-- Tab Navigation -->
+            <div class="tab-container">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="sentiment-tab" data-bs-toggle="tab" data-bs-target="#sentiment" type="button" role="tab">
+                            <i class="fas fa-comment-dots"></i> Analyse de Sentiment
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual" type="button" role="tab">
+                            <i class="fas fa-sliders-h"></i> Saisie Manuelle
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="myTabContent">
+                    <!-- Sentiment Analysis Tab -->
+                    <div class="tab-pane fade show active" id="sentiment" role="tabpanel">
+                        <div class="widget-card">
+                            <h4><i class="fas fa-language"></i> Analyse Automatique de Satisfaction</h4>
+                            <p class="text-muted mb-3">
+                                Analysez automatiquement la satisfaction client à partir d'un commentaire. Support multilingue : Darja 🇩🇿 | Arabe 🇸🇦 | Français 🇫🇷 | English 🇬🇧
+                            </p>
+
+                            <div class="language-badges">
+                                <span class="language-badge">🇩🇿 Darja Algérien</span>
+                                <span class="language-badge">🇸🇦 Arabe Standard</span>
+                                <span class="language-badge">🇫🇷 Français</span>
+                                <span class="language-badge">🇬🇧 Anglais</span>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Commentaire client :</label>
+                                <textarea class="commentaire-input" id="commentaire" placeholder="✍️ Tapez ou collez le commentaire du client dans n'importe quelle langue... 
+
+Exemples:
+- 'خدمة ممتازة وسريعة شكرا جزيلا' 🇸🇦
+- 'Mlih bzaf khidmtkom raqi w sahla' 🇩🇿
+- 'Excellent service, très satisfait' 🇫🇷
+- 'Fast and reliable connection, thank you!' 🇬🇧"></textarea>
+                            </div>
+
+                            <div class="text-center">
+                                <button class="btn btn-sentiment btn-ooredoo" id="analyse-btn">
+                                    <i class="fas fa-brain"></i> ANALYSER LE SENTIMENT
+                                </button>
+                            </div>
+
+                            <!-- Sentiment Results -->
+                            <div id="sentiment-results" style="display: none;" class="mt-4">
+                                <!-- Results will be displayed here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Manual Input Tab -->
+                    <div class="tab-pane fade" id="manual" role="tabpanel">
+                        <div class="row">
+                            <!-- Personal Info -->
+                            <div class="col-lg-6">
+                                <div class="widget-card">
+                                    <h4><i class="fas fa-user-circle"></i> Informations personnelles</h4>
+
+                                    <!-- Satisfaction Slider -->
+                                    <div class="slider-container">
+                                        <div class="slider-header">
+                                            <div class="slider-title">Satisfaction client</div>
+                                            <div class="slider-value" id="satisfaction-value">7/10</div>
+                                        </div>
+                                        <input type="range" class="form-range" min="1" max="10" value="7" step="1" id="satisfaction">
+
+                                        <!-- Tick marks -->
+                                        <div class="tick-marks">
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">1</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">3</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">5</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">7</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">10</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="slider-grid">
+                                            <span>Très insatisfait</span>
+                                            <span>Neutre</span>
+                                            <span>Très satisfait</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Age Slider -->
+                                    <div class="slider-container">
+                                        <div class="slider-header">
+                                            <div class="slider-title">Âge du client</div>
+                                            <div class="slider-value" id="age-value">35 ans</div>
+                                        </div>
+                                        <input type="range" class="form-range" min="18" max="70" value="35" id="age">
+
+                                        <div class="tick-marks">
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">18</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">30</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">45</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">70</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Seniority Slider -->
+                                    <div class="slider-container">
+                                        <div class="slider-header">
+                                            <div class="slider-title">Ancienneté (mois)</div>
+                                            <div class="slider-value" id="seniority-value">12 mois</div>
+                                        </div>
+                                        <input type="range" class="form-range" min="1" max="60" value="12" id="seniority">
+
+                                        <div class="tick-marks">
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">1</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">12</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">36</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">60</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Service Info -->
+                            <div class="col-lg-6">
+                                <div class="widget-card">
+                                    <h4><i class="fas fa-mobile-alt"></i> Service et facturation</h4>
+
+                                    <!-- Support Calls -->
+                                    <div class="slider-container">
+                                        <div class="slider-header">
+                                            <div class="slider-title">Appels support / mois</div>
+                                            <div class="slider-value" id="calls-value">2</div>
+                                        </div>
+                                        <input type="range" class="form-range" min="0" max="20" value="2" id="support-calls">
+
+                                        <div class="tick-marks">
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">0</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">5</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">10</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">20</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="slider-grid">
+                                            <span>Très rarement</span>
+                                            <span>Fréquemment</span>
+                                            <span>Très fréquemment</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Payment Delays -->
+                                    <div class="slider-container">
+                                        <div class="slider-header">
+                                            <div class="slider-title">Retards de paiement</div>
+                                            <div class="slider-value" id="delays-value">0</div>
+                                        </div>
+                                        <input type="range" class="form-range" min="0" max="10" value="0" id="payment-delays">
+
+                                        <div class="tick-marks">
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">0</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">3</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">6</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">10</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Monthly Price -->
+                                    <div class="slider-container">
+                                        <div class="slider-header">
+                                            <div class="slider-title">Prix mensuel (DZD)</div>
+                                            <div class="slider-value" id="price-value">3,500 DZD</div>
+                                        </div>
+                                        <input type="range" class="form-range" min="500" max="15000" step="100" value="3500" id="monthly-price">
+
+                                        <div class="tick-marks">
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">500</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">5,000</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">10,000</span>
+                                            </div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark"></div>
+                                            <div class="tick-mark major">
+                                                <span class="tick-label">15,000</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Service Type -->
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Type de service</label>
+                                        <div class="btn-group w-100" role="group">
+                                            <input type="radio" class="btn-check" name="service-type" id="mobile" autocomplete="off" checked>
+                                            <label class="btn btn-outline-primary" for="mobile">
+                                                <i class="fas fa-mobile-alt"></i> Mobile
+                                            </label>
+
+                                            <input type="radio" class="btn-check" name="service-type" id="fiber" autocomplete="off">
+                                            <label class="btn btn-outline-primary" for="fiber">
+                                                <i class="fas fa-wifi"></i> Fibre
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Contract Type -->
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Type de contrat</label>
+                                        <select class="form-select" id="contract-type">
+                                            <option value="monthly">Mensuel</option>
+                                            <option value="3months">3 mois</option>
+                                            <option value="1year">1 an</option>
+                                            <option value="2years">2 ans</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calculate Button -->
+            <div class="text-center my-5">
+                <button class="btn btn-ooredoo btn-lg pulse-animation" id="calculate-btn">
+                    <i class="fas fa-rocket"></i> CALCULER LE RISQUE DE CHURN
+                </button>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results-section" style="display: none;">
+                <h2 class="section-title"><i class="fas fa-chart-pie"></i> Résultats de la prédiction</h2>
+
+                <!-- Main Result Card -->
+                <div id="result-card" class="result-card">
+                    <!-- Content will be filled by JavaScript -->
+                </div>
+
+                <!-- Gauge Chart -->
+                <div class="gauge-container" id="gauge-chart"></div>
+
+                <!-- Factors Analysis -->
+                <div class="row mt-4">
+                    <div class="col-lg-6">
+                        <div class="widget-card">
+                            <h4><i class="fas fa-exclamation-triangle text-danger"></i> Points de vigilance</h4>
+                            <ul class="factor-list" id="negative-factors">
+                                <!-- Filled by JavaScript -->
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="widget-card">
+                            <h4><i class="fas fa-check-circle text-success"></i> Points forts</h4>
+                            <ul class="factor-list" id="positive-factors">
+                                <!-- Filled by JavaScript -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recommended Actions -->
+                <div class="widget-card mt-4">
+                    <h4><i class="fas fa-bullseye"></i> Plan d'action recommandé</h4>
+                    <div class="action-grid" id="recommended-actions">
+                        <!-- Filled by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Examples Section -->
+            <h2 class="section-title mt-5"><i class="fas fa-lightbulb"></i> Exemples de scénarios</h2>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="example-card example-high" onclick="loadExample('high')">
+                        <h5><i class="fas fa-fire text-danger"></i> Client à haut risque</h5>
+                        <p class="text-muted">Commentaire typique:</p>
+                        <p class="fst-italic">"Service très mauvais, connexion lente, support ne répond pas"</p>
+                        <div class="mt-3">
+                            <span class="badge bg-danger me-2">Satisfaction: 2/10</span>
+                            <span class="badge bg-danger">Risque: 85%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="example-card example-medium" onclick="loadExample('medium')">
+                        <h5><i class="fas fa-exclamation-circle text-warning"></i> Risque modéré</h5>
+                        <p class="text-muted">Commentaire typique:</p>
+                        <p class="fst-italic">"Service correct mais peut être amélioré"</p>
+                        <div class="mt-3">
+                            <span class="badge bg-warning me-2">Satisfaction: 6/10</span>
+                            <span class="badge bg-warning">Risque: 45%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="example-card example-low" onclick="loadExample('low')">
+                        <h5><i class="fas fa-shield-alt text-success"></i> Client fidèle</h5>
+                        <p class="text-muted">Commentaire typique:</p>
+                        <p class="fst-italic">"Excellent service, très satisfait depuis 3 ans!"</p>
+                        <div class="mt-3">
+                            <span class="badge bg-success me-2">Satisfaction: 9/10</span>
+                            <span class="badge bg-success">Risque: 15%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center">
+            <p>© 2024 OOREDOO Algérie - Système intelligent de prédiction de churn</p>
+            <p class="small mt-2">
+                <i class="fas fa-info-circle"></i> Cet outil combine l'analyse de sentiment multilingue avec des algorithmes prédictifs pour estimer le risque d'attrition client. Les résultats sont indicatifs et doivent être utilisés comme aide à la décision.
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // Dictionnaire multilingue pour l'analyse de sentiment
+        const LEXIQUE_EMOTION = {
+            positif: [
+                // 🇩🇿 Darja
+                "mlih", "bahi", "mzyan", "sahl", "raqi", "merh", "fr7an", "saye7", "tayeb", "mabsout",
+                "khouya", "sah", "mta3 mlih", "jbadt", "sahih", "tayara", "mlih bzaf", "raqi bzaf", "cool",
+                "bark allah fik", "mziane", "jayed", "chab", "mziyan", "hsen", "hadi", "wa3er", "ghalia",
+                // 🇸🇦 Arabe
+                "جيد", "ممتاز", "راقي", "شكرا", "خدمة جيدة", "سريع", "سعيد", "جمال", "مفيد", "مرحبا",
+                "مبسوط", "سهل", "مرتاح", "ممتازة", "محبوب", "مقبول", "مطمئن", "ممتاز جدا", "ناجح", "مثالي",
+                // 🇫🇷 Français
+                "merci", "excellent", "rapide", "parfait", "bien", "satisfait", "au top", "nickel", "super", "formidable",
+                "topissime", "génial", "fantastique", "excellent travail", "très bien", "cool", "agréable", "efficace",
+                // 🇬🇧 English
+                "good", "excellent", "perfect", "fast", "thank you", "satisfied", "awesome", "great", "fantastic", "amazing",
+                "brilliant", "excellent work", "well done", "top", "superb", "wonderful", "pleased", "happy", "lovely"
+            ],
+            negatif: [
+                // 🇩🇿 Darja
+                "machi mliha", "da3if", "karitha", "ta3 ta3b", "raho bti2", "ma3tal", "machi mlih", "machi mliha",
+                "machi mlih?", "mqelleq", "mch fahm walo", "mkhrbq", "khayeb", "si2", "mza3ej", "ta3b", "mml",
+                // 🇸🇦 Arabe
+                "سيء", "ضعيف", "كارثة", "متعب", "بطيء", "معطل", "مقلق", "غير مفهوم", "مخرب", "خائب",
+                "سيء", "منزعج", "متعب", "ممل", "سيء جدا", "خائب", "خائب جدا", "مرهق", "غاضب", "محرج",
+                // 🇫🇷 Français
+                "lent", "problème", "mauvais", "nul", "cher", "insatisfait", "pas top", "difficile", "raté", "moche",
+                "pénible", "mauvaise qualité", "décevant", "catastrophique", "fâcheux", "problématique", "ennuyeux",
+                // 🇬🇧 English
+                "bad", "slow", "problem", "terrible", "expensive", "not satisfied", "horrible", "annoying", "poor", "disappointing",
+                "frustrating", "unsatisfactory", "ugly", "messy", "hard", "difficult", "worse", "fail", "subpar", "unhappy"
+            ]
+        };
+
+        // Fonction d'analyse de sentiment
+        function analyserSentiment(commentaire) {
+            const texte = commentaire.toLowerCase();
+            let score = 0;
+            const motsPositifs = [];
+            const motsNegatifs = [];
+
+            // Vérifier les mots positifs
+            LEXIQUE_EMOTION.positif.forEach(mot => {
+                if (texte.includes(mot)) {
+                    score += 1;
+                    motsPositifs.push(mot);
+                }
+            });
+
+            // Vérifier les mots négatifs
+            LEXIQUE_EMOTION.negatif.forEach(mot => {
+                if (texte.includes(mot)) {
+                    score -= 1;
+                    motsNegatifs.push(mot);
+                }
+            });
+
+            // Déterminer le sentiment
+            let emotion, satisfaction, couleur, classeCSS;
+
+            if (score <= -2) {
+                emotion = "Très négatif 😡";
+                satisfaction = 2;
+                couleur = "#f44336";
+                classeCSS = "sentiment-negative";
+            } else if (score === -1) {
+                emotion = "Négatif 😕";
+                satisfaction = 4;
+                couleur = "#ff9800";
+                classeCSS = "sentiment-neutral";
+            } else if (score === 0) {
+                emotion = "Neutre 😐";
+                satisfaction = 6;
+                couleur = "#ffc107";
+                classeCSS = "sentiment-neutral";
+            } else if (score === 1) {
+                emotion = "Positif 🙂";
+                satisfaction = 8;
+                couleur = "#8bc34a";
+                classeCSS = "sentiment-positive";
+            } else {
+                emotion = "Très positif 😄";
+                satisfaction = 9.5;
+                couleur = "#4caf50";
+                classeCSS = "sentiment-positive";
+            }
+
+            return {
+                emotion,
+                satisfaction,
+                couleur,
+                classeCSS,
+                score,
+                motsPositifs,
+                motsNegatifs
+            };
+        }
+
+        // Update slider values in real-time
+        document.querySelectorAll('input[type="range"]').forEach(slider => {
+            const valueSpan = document.getElementById(slider.id + '-value');
+
+            slider.addEventListener('input', function() {
+                if (slider.id === 'monthly-price') {
+                    valueSpan.textContent = parseInt(this.value).toLocaleString() + ' DZD';
+                } else if (slider.id === 'age') {
+                    valueSpan.textContent = this.value + ' ans';
+                } else if (slider.id === 'seniority') {
+                    valueSpan.textContent = this.value + ' mois';
+                } else if (slider.id === 'satisfaction') {
+                    valueSpan.textContent = this.value + '/10';
+                    // Auto-switch to manual tab if using satisfaction slider
+                    document.getElementById('manual-tab').click();
+                } else {
+                    valueSpan.textContent = this.value;
+                }
+            });
+        });
+
+        // Analyse sentiment button
+        document.getElementById('analyse-btn').addEventListener('click', function() {
+                    const commentaire = document.getElementById('commentaire').value.trim();
+
+                    if (commentaire.length < 3) {
+                        alert('⚠️ Veuillez entrer un commentaire d\'au moins 3 caractères');
+                        return;
+                    }
+
+                    const result = analyserSentiment(commentaire);
+
+                    // Afficher les résultats de l'analyse
+                    const resultsDiv = document.getElementById('sentiment-results');
+                    resultsDiv.style.display = 'block';
+                    resultsDiv.innerHTML = `
+                <div class="${result.classeCSS} sentiment-result">
+                    <div class="row align-items-center">
+                        <div class="col-md-4 text-center">
+                            <div style="font-size: 72px; color: ${result.couleur}; margin-bottom: 10px;">
+                                ${result.emotion.split(' ')[2]}
+                            </div>
+                            <h3 style="color: ${result.couleur};">${result.emotion}</h3>
+                        </div>
+                        <div class="col-md-8">
+                            <h2>Satisfaction estimée: <strong>${result.satisfaction}/10</strong></h2>
+                            <div class="mb-3">
+                                <strong>Score de sentiment:</strong> ${result.score} 
+                                (${result.motsPositifs.length} positif${result.motsPositifs.length > 1 ? 's' : ''}, 
+                                ${result.motsNegatifs.length} négatif${result.motsNegatifs.length > 1 ? 's' : ''})
+                            </div>
+                            
+                            ${result.motsPositifs.length > 0 ? `
+                            <div class="mb-2">
+                                <strong>Mots positifs détectés:</strong>
+                                <div class="d-flex flex-wrap gap-2 mt-1">
+                                    ${result.motsPositifs.map(mot => `<span class="badge bg-success">${mot}</span>`).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            ${result.motsNegatifs.length > 0 ? `
+                            <div class="mb-2">
+                                <strong>Mots négatifs détectés:</strong>
+                                <div class="d-flex flex-wrap gap-2 mt-1">
+                                    ${result.motsNegatifs.map(mot => `<span class="badge bg-danger">${mot}</span>`).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <div class="mt-3">
+                                <button class="btn btn-ooredoo" onclick="useSentimentScore(${result.satisfaction})">
+                                    <i class="fas fa-calculator"></i> UTILISER CETTE SATISFACTION POUR LA PRÉDICTION
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Auto-scroll to results
+            resultsDiv.scrollIntoView({ behavior: 'smooth' });
+        });
+
+        // Use sentiment score in prediction
+        function useSentimentScore(score) {
+            // Switch to manual tab and set satisfaction value
+            document.getElementById('manual-tab').click();
+            document.getElementById('satisfaction').value = Math.round(score);
+            document.getElementById('satisfaction').dispatchEvent(new Event('input'));
+            
+            // Show confirmation
+            alert(`✅ Satisfaction fixée à ${score}/10 basée sur l'analyse du commentaire. Cliquez sur "CALCULER LE RISQUE DE CHURN".`);
+        }
+
+        // Calculate churn risk
+        document.getElementById('calculate-btn').addEventListener('click', function() {
+            calculateChurn();
+        });
+
+        function calculateChurn() {
+            // Determine which satisfaction value to use
+            let satisfaction;
+            const activeTab = document.querySelector('.nav-tabs .nav-link.active').id;
+            
+            if (activeTab === 'sentiment-tab') {
+                const sentimentResults = document.getElementById('sentiment-results');
+                if (sentimentResults.style.display === 'block') {
+                    // Extract score from sentiment results
+                    const scoreText = sentimentResults.querySelector('h2 strong').textContent;
+                    satisfaction = parseInt(scoreText.split('/')[0]);
+                } else {
+                    alert('⚠️ Veuillez d\'abord analyser un commentaire ou utiliser l\'onglet "Saisie Manuelle"');
+                    return;
+                }
+            } else {
+                satisfaction = parseInt(document.getElementById('satisfaction').value);
+            }
+            
+            // Get other values
+            const age = parseInt(document.getElementById('age').value);
+            const seniority = parseInt(document.getElementById('seniority').value);
+            const monthlyPrice = parseInt(document.getElementById('monthly-price').value);
+            const supportCalls = parseInt(document.getElementById('support-calls').value);
+            const paymentDelays = parseInt(document.getElementById('payment-delays').value);
+            const serviceType = document.querySelector('input[name="service-type"]:checked').id;
+            const contractType = document.getElementById('contract-type').value;
+            
+            // Calculate risk score
+            let riskScore = 30;
+            const factors = {
+                positive: [],
+                negative: []
+            };
+            
+            // Satisfaction impact
+            if (satisfaction <= 3) {
+                riskScore += 40;
+                factors.negative.push("Très faible satisfaction client");
+            } else if (satisfaction <= 5) {
+                riskScore += 20;
+                factors.negative.push("Satisfaction client moyenne");
+            } else if (satisfaction <= 7) {
+                riskScore += 10;
+                factors.negative.push("Satisfaction légèrement inférieure");
+            }
+            
+            if (satisfaction >= 8) {
+                riskScore -= 20;
+                factors.positive.push("Bonne satisfaction client");
+            }
+            
+            // Support calls impact
+            if (supportCalls >= 5) {
+                riskScore += 25;
+                factors.negative.push("Appels support très fréquents");
+            } else if (supportCalls >= 3) {
+                riskScore += 15;
+                factors.negative.push("Appels support fréquents");
+            }
+            
+            // Payment delays impact
+            if (paymentDelays >= 3) {
+                riskScore += 30;
+                factors.negative.push("Retards de paiement répétés");
+            } else if (paymentDelays >= 1) {
+                riskScore += 15;
+                factors.negative.push("Retards de paiement occasionnels");
+            }
+            
+            if (paymentDelays === 0) {
+                riskScore -= 10;
+                factors.positive.push("Aucun retard de paiement");
+            }
+            
+            // Seniority impact
+            if (seniority < 6) {
+                riskScore += 20;
+                factors.negative.push("Ancienneté très faible");
+            }
+            
+            if (seniority >= 24) {
+                riskScore -= 25;
+                factors.positive.push("Ancienneté élevée");
+            }
+            
+            // Contract type impact
+            if (contractType === 'monthly') {
+                riskScore += 15;
+                factors.negative.push("Contrat mensuel facile à résilier");
+            }
+            
+            if (contractType === '2years') {
+                riskScore -= 30;
+                factors.positive.push("Contrat long terme");
+            }
+            
+            // Service type impact
+            if (serviceType === 'fiber') {
+                riskScore -= 5;
+                factors.positive.push("Client fibre (plus fidèle)");
+            }
+            
+            // Normalize risk score
+            riskScore = Math.max(5, Math.min(95, riskScore));
+            const probability = riskScore / 100;
+            
+            // Determine risk level
+            let riskLevel, color, bgClass, emoji, priority, recommendation;
+            
+            if (probability >= 0.7) {
+                riskLevel = "🚨 TRÈS ÉLEVÉ";
+                color = "#f44336";
+                bgClass = "high-risk";
+                emoji = "🔥";
+                priority = "HAUTE PRIORITÉ";
+                recommendation = "Contact immédiat requis - Offre de fidélisation urgente";
+            } else if (probability >= 0.5) {
+                riskLevel = "⚠️ ÉLEVÉ";
+                color = "#ff9800";
+                bgClass = "medium-risk";
+                emoji = "⚠️";
+                priority = "PRIORITÉ MOYENNE-HAUTE";
+                recommendation = "Offrir promotion dans les 7 jours - Surveillance active";
+            } else if (probability >= 0.3) {
+                riskLevel = "📊 MODÉRÉ";
+                color = "#ffc107";
+                bgClass = "medium-risk";
+                emoji = "📊";
+                priority = "PRIORITÉ MOYENNE";
+                recommendation = "Surveillance mensuelle - Maintenir la qualité de service";
+            } else {
+                riskLevel = "✅ FAIBLE";
+                color = "#4caf50";
+                bgClass = "low-risk";
+                emoji = "✅";
+                priority = "PRIORITÉ BASSE";
+                recommendation = "Client fidèle - Renforcer la relation client";
+            }
+            
+            // Display results
+            document.getElementById('results-section').style.display = 'block';
+            
+            // Update result card
+            const resultCard = document.getElementById('result-card');
+            resultCard.className = `result-card ${bgClass}`;
+            resultCard.innerHTML = `
+                <div class="row align-items-center">
+                    <div class="col-md-4 text-center">
+                        <div class="risk-score" style="color: ${color}">${(probability * 100).toFixed(0)}%</div>
+                        <div class="risk-level" style="color: ${color}">${riskLevel}</div>
+                        <div class="mt-3">
+                            <span class="badge bg-dark p-2">${priority}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <h3><i class="fas fa-chart-line"></i> Analyse du risque de churn</h3>
+                        <p><i class="fas fa-lightbulb"></i> <strong>Recommandation:</strong> ${recommendation}</p>
+                        <div class="row mt-3">
+                            <div class="col-6">
+                                <strong>Satisfaction:</strong> ${satisfaction}/10<br>
+                                <strong>Ancienneté:</strong> ${seniority} mois<br>
+                                <strong>Service:</strong> ${serviceType === 'mobile' ? 'Mobile' : 'Fibre'}
+                            </div>
+                            <div class="col-6">
+                                <strong>Appels support:</strong> ${supportCalls}/mois<br>
+                                <strong>Retards:</strong> ${paymentDelays}<br>
+                                <strong>Contrat:</strong> ${contractType === 'monthly' ? 'Mensuel' : contractType === '3months' ? '3 mois' : contractType === '1year' ? '1 an' : '2 ans'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Update factors lists
+            document.getElementById('negative-factors').innerHTML = 
+                factors.negative.length > 0 
+                    ? factors.negative.map(f => `<li class="factor-negative"><i class="fas fa-exclamation-circle text-danger"></i> ${f}</li>`).join('')
+                    : '<li class="text-muted"><i class="fas fa-check text-success"></i> Aucun point négatif significatif détecté</li>';
+            
+            document.getElementById('positive-factors').innerHTML = 
+                factors.positive.length > 0 
+                    ? factors.positive.map(f => `<li class="factor-positive"><i class="fas fa-check-circle text-success"></i> ${f}</li>`).join('')
+                    : '<li class="text-muted"><i class="fas fa-info-circle text-primary"></i> Aucun point positif significatif détecté</li>';
+            
+            // Update recommended actions
+            let actions;
+            if (probability >= 0.7) {
+                actions = [
+                    {icon: "📞", title: "Contact immédiat", desc: "Appeler dans les 24h pour comprendre les problèmes"},
+                    {icon: "🎁", title: "Offre promotionnelle", desc: "Proposer 30% de réduction pour 6 mois"},
+                    {icon: "👥", title: "Gestionnaire dédié", desc: "Assigner un responsable client spécifique"},
+                    {icon: "🔧", title: "Audit technique", desc: "Analyser et résoudre les problèmes techniques"}
+                ];
+            } else if (probability >= 0.5) {
+                actions = [
+                    {icon: "📧", title: "Email personnalisé", desc: "Envoyer une offre sous 7 jours"},
+                    {icon: "📅", title: "Rendez-vous satisfaction", desc: "Programmer un appel de suivi"},
+                    {icon: "🔍", title: "Analyse historique", desc: "Examiner les problèmes récurrents"},
+                    {icon: "💳", title: "Facilitation paiement", desc: "Proposer le prélèvement automatique"}
+                ];
+            } else if (probability >= 0.3) {
+                actions = [
+                    {icon: "📊", title: "Suivi mensuel", desc: "Revue régulière de la satisfaction"},
+                    {icon: "🔔", title: "Rappel renouvellement", desc: "Notification anticipée de fin de contrat"},
+                    {icon: "🌟", title: "Upselling", desc: "Proposer des services complémentaires"},
+                    {icon: "📋", title: "Feedback client", desc: "Demander régulièrement des retours"}
+                ];
+            } else {
+                actions = [
+                    {icon: "⭐", title: "Programme fidélité", desc: "Inviter au programme VIP client"},
+                    {icon: "🎯", title: "Offres premium", desc: "Proposer des services exclusifs"},
+                    {icon: "🤝", title: "Événements clients", desc: "Invitation aux événements OORedoo"},
+                    {icon: "📈", title: "Advocacy", desc: "Encourager les témoignages positifs"}
+                ];
+            }
+            
+            document.getElementById('recommended-actions').innerHTML = 
+                actions.map(action => `
+                    <div class="action-card">
+                        <div class="text-center mb-3" style="font-size: 32px;">${action.icon}</div>
+                        <h5>${action.title}</h5>
+                        <p class="text-muted small">${action.desc}</p>
+                        <button class="btn btn-sm btn-outline-primary w-100">Planifier</button>
+                    </div>
+                `).join('');
+            
+            // Create gauge chart
+            createGaugeChart(probability * 100, color, riskLevel);
+            
+            // Scroll to results
+            document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function createGaugeChart(value, color, title) {
+            const data = [{
+                type: "indicator",
+                mode: "gauge+number",
+                value: value,
+                title: { text: title, font: { size: 22, color: color } },
+                number: { font: { size: 42, color: color } },
+                gauge: {
+                    axis: { 
+                        range: [0, 100], 
+                        tickwidth: 1, 
+                        tickcolor: "darkgray",
+                        tickfont: { size: 12 }
+                    },
+                    bar: { color: color, thickness: 0.4 },
+                    bgcolor: "white",
+                    borderwidth: 2,
+                    bordercolor: "gray",
+                    steps: [
+                        { range: [0, 30], color: "#e8f5e9", name: "Faible" },
+                        { range: [30, 50], color: "#fff3e0", name: "Modéré" },
+                        { range: [50, 70], color: "#ffe0b2", name: "Élevé" },
+                        { range: [70, 100], color: "#ffcdd2", name: "Très élevé" }
+                    ],
+                    threshold: {
+                        line: { color: "black", width: 4 },
+                        thickness: 0.8,
+                        value: 50
+                    }
+                }
+            }];
+            
+            const layout = {
+                height: 320,
+                margin: { t: 60, b: 30, l: 30, r: 30 },
+                font: { family: "Arial" }
+            };
+            
+            Plotly.newPlot('gauge-chart', data, layout);
+        }
+        
+        // Example loading functions
+        function loadExample(type) {
+            if (type === 'high') {
+                // Switch to sentiment tab and set example comment
+                document.getElementById('sentiment-tab').click();
+                document.getElementById('commentaire').value = "Service très mauvais, connexion lente tout le temps, support ne répond pas au téléphone. Déçu depuis le début. Je vais changer d'opérateur si ça continue comme ça.";
+                
+                // Set other values in manual tab
+                document.getElementById('support-calls').value = 8;
+                document.getElementById('payment-delays').value = 2;
+                document.getElementById('contract-type').value = 'monthly';
+                document.getElementById('seniority').value = 4;
+                
+                // Update slider displays
+                document.getElementById('support-calls').dispatchEvent(new Event('input'));
+                document.getElementById('payment-delays').dispatchEvent(new Event('input'));
+                document.getElementById('seniority').dispatchEvent(new Event('input'));
+                
+            } else if (type === 'medium') {
+                document.getElementById('sentiment-tab').click();
+                document.getElementById('commentaire').value = "Service correct la plupart du temps mais parfois des coupures. Le support est aimable mais pas toujours efficace. Prix raisonnable pour ce que c'est.";
+                
+                document.getElementById('support-calls').value = 4;
+                document.getElementById('payment-delays').value = 1;
+                document.getElementById('contract-type').value = '1year';
+                document.getElementById('seniority').value = 18;
+                
+                document.getElementById('support-calls').dispatchEvent(new Event('input'));
+                document.getElementById('payment-delays').dispatchEvent(new Event('input'));
+                document.getElementById('seniority').dispatchEvent(new Event('input'));
+                
+            } else if (type === 'low') {
+                document.getElementById('sentiment-tab').click();
+                document.getElementById('commentaire').value = "Excellent service depuis 3 ans! Connexion fibre ultra rapide et stable. Support réactif et professionnel. Je recommande OORedoo à tous mes proches. خدمة ممتازة وراقية";
+                
+                document.getElementById('support-calls').value = 1;
+                document.getElementById('payment-delays').value = 0;
+                document.getElementById('contract-type').value = '2years';
+                document.getElementById('seniority').value = 36;
+                
+                document.getElementById('support-calls').dispatchEvent(new Event('input'));
+                document.getElementById('payment-delays').dispatchEvent(new Event('input'));
+                document.getElementById('seniority').dispatchEvent(new Event('input'));
+            }
+            
+            // Show notification
+            setTimeout(() => {
+                alert(`Scénario "${type === 'high' ? 'Haut risque' : type === 'medium' ? 'Risque modéré' : 'Client fidèle'}" chargé. Cliquez sur "ANALYSER LE SENTIMENT" puis "CALCULER".`);
+            }, 300);
+        }
+        
+        // Initialize with example values
+        window.onload = function() {
+            document.querySelectorAll('input[type="range"]').forEach(slider => {
+                const event = new Event('input');
+                slider.dispatchEvent(event);
+            });
+            
+            // Initialize tick marks for satisfaction slider
+            updateTickMarks();
+        };
+        
+        function updateTickMarks() {
+            // This function would create dynamic tick marks if needed
+        }
+    </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
