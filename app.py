@@ -124,27 +124,47 @@ def calculer_risque_churn(satisfaction, age, anciennete, prix, appels, retards, 
     """Calcule le risque de churn"""
     score = 30
     
-    if satisfaction <= 3: score += 40
-    elif satisfaction <= 5: score += 20
-    elif satisfaction <= 7: score += 10
-    if satisfaction >= 8: score -= 20
+    # Facteur satisfaction
+    if satisfaction <= 3: 
+        score += 40
+    elif satisfaction <= 5: 
+        score += 20
+    elif satisfaction <= 7: 
+        score += 10
+    elif satisfaction >= 8: 
+        score -= 20
     
-    if appels >= 5: score += 25
-    elif appels >= 3: score += 15
+    # Facteur appels support
+    if appels >= 5: 
+        score += 25
+    elif appels >= 3: 
+        score += 15
     
-    if retards >= 3: score += 30
-    elif retards >= 1: score += 15
-    if retards == 0: score -= 10
+    # Facteur retards de paiement
+    if retards >= 3: 
+        score += 30
+    elif retards >= 1: 
+        score += 15
+    if retards == 0: 
+        score -= 10
     
-    if anciennete < 6: score += 20
-    if anciennete >= 24: score -= 25
+    # Facteur ancienneté
+    if anciennete < 6: 
+        score += 20
+    elif anciennete >= 24: 
+        score -= 25
     
-    if contrat == "Mensuel": score += 15
-    if contrat == "2 ans": score -= 30
+    # Facteur type de contrat
+    if contrat == "Mensuel": 
+        score += 15
+    elif contrat == "2 ans": 
+        score -= 30
     
+    # Normalisation du score entre 5% et 95%
     score = max(5, min(95, score))
     probabilite = score / 100
     
+    # Classification du risque
     if probabilite >= 0.7:
         return {
             "probabilite": probabilite,
@@ -204,19 +224,22 @@ def calculer_risque_churn(satisfaction, age, anciennete, prix, appels, retards, 
 
 def creer_jauge_altair(probabilite, couleur):
     """Crée une jauge avec Altair"""
+    # Création des données pour le graphique
     data = pd.DataFrame({
         'value': [probabilite * 100],
         'max': [100]
     })
     
+    # Création de la jauge
     base = alt.Chart(data).encode(
         theta=alt.Theta("value:Q", stack=True),
         color=alt.ColorValue(couleur),
-        tooltip=['value']
+        tooltip=['value:Q']
     )
     
     gauge = base.mark_arc(innerRadius=80, outerRadius=120)
     
+    # Texte au centre
     text = alt.Chart(data).mark_text(
         size=40,
         fontWeight='bold'
@@ -238,9 +261,19 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # Initialisation
+    # Initialisation des variables de session
     if 'satisfaction' not in st.session_state:
         st.session_state.satisfaction = 7
+    
+    # Variables pour stocker les inputs manuels
+    satisfaction_manual = st.session_state.satisfaction
+    age_manual = 35
+    anciennete_manual = 12
+    prix_manual = 3500
+    appels_manual = 2
+    retards_manual = 0
+    service_manual = "Mobile"
+    contrat_manual = "Mensuel"
     
     # Onglets
     tab1, tab2 = st.tabs(["🧠 ANALYSE SENTIMENT", "📊 SAISIE MANUELLE"])
@@ -253,11 +286,12 @@ def main():
             placeholder="Ex: 'خدمة ممتازة' ou 'Excellent service'..."
         )
         
-        if st.button("🔍 ANALYSER"):
+        if st.button("🔍 ANALYSER", key="analyse_btn"):
             if commentaire.strip():
                 resultat = analyser_sentiment(commentaire)
                 if resultat:
                     st.session_state.satisfaction = resultat["satisfaction"]
+                    satisfaction_manual = resultat["satisfaction"]
                     
                     st.markdown(f"""
                     <div class="info-card" style="border-left-color: {resultat['couleur']};">
@@ -270,31 +304,39 @@ def main():
         col1, col2 = st.columns(2)
         
         with col1:
-            satisfaction = st.slider(
+            satisfaction_manual = st.slider(
                 "Satisfaction (1-10):",
-                1, 10, st.session_state.satisfaction
+                1, 10, st.session_state.satisfaction,
+                key="satisfaction_slider"
             )
-            age = st.slider("Âge:", 18, 70, 35)
-            anciennete = st.slider("Ancienneté (mois):", 1, 60, 12)
-            prix = st.slider("Prix (DZD):", 500, 15000, 3500, 100)
+            age_manual = st.slider("Âge:", 18, 70, 35, key="age_slider")
+            anciennete_manual = st.slider("Ancienneté (mois):", 1, 60, 12, key="anciennete_slider")
+            prix_manual = st.slider("Prix (DZD):", 500, 15000, 3500, 100, key="prix_slider")
         
         with col2:
-            appels = st.slider("Appels support/mois:", 0, 20, 2)
-            retards = st.slider("Retards paiement:", 0, 10, 0)
-            service = st.selectbox("Service:", ["Mobile", "Fibre"])
-            contrat = st.selectbox("Contrat:", ["Mensuel", "3 mois", "1 an", "2 ans"])
+            appels_manual = st.slider("Appels support/mois:", 0, 20, 2, key="appels_slider")
+            retards_manual = st.slider("Retards paiement:", 0, 10, 0, key="retards_slider")
+            service_manual = st.selectbox("Service:", ["Mobile", "Fibre"], key="service_select")
+            contrat_manual = st.selectbox("Contrat:", ["Mensuel", "3 mois", "1 an", "2 ans"], key="contrat_select")
     
-    # Bouton calcul
-    if st.button("🚀 CALCULER RISQUE", use_container_width=True):
+    # Bouton calcul (utilise toujours la saisie manuelle)
+    if st.button("🚀 CALCULER RISQUE", use_container_width=True, key="calcul_btn"):
         risque = calculer_risque_churn(
-            satisfaction, age, anciennete, prix, appels, retards, service, contrat
+            satisfaction_manual, 
+            age_manual, 
+            anciennete_manual, 
+            prix_manual, 
+            appels_manual, 
+            retards_manual, 
+            service_manual, 
+            contrat_manual
         )
         
-        # Résultats
+        # Afficher les résultats
         st.markdown("---")
         st.markdown("## 📊 RÉSULTATS")
         
-        # Affichage métrique principale
+        # Métrique principale
         col_met1, col_met2, col_met3 = st.columns([2, 1, 2])
         
         with col_met2:
@@ -327,7 +369,7 @@ def main():
             with cols[idx]:
                 st.markdown(f"""
                 <div style="text-align: center; padding: 1rem; background: white; 
-                         border-radius: 10px; border: 1px solid #ddd;">
+                         border-radius: 10px; border: 1px solid #ddd; height: 150px;">
                     <div style="font-size: 2rem;">{action['icon']}</div>
                     <h4>{action['titre']}</h4>
                     <p style="color: #666; font-size: 0.9rem;">
@@ -345,17 +387,23 @@ def main():
         
         st.markdown("---")
         st.markdown("### 💡 Exemples")
-        if st.button("🔥 Haut risque"):
-            st.session_state.satisfaction = 2
         
-        if st.button("⚠️ Risque moyen"):
-            st.session_state.satisfaction = 6
+        col1, col2, col3 = st.columns(3)
         
-        if st.button("✅ Faible risque"):
-            st.session_state.satisfaction = 9
+        with col1:
+            if st.button("🔥", help="Haut risque"):
+                st.session_state.satisfaction = 2
+                st.rerun()
+        
+        with col2:
+            if st.button("⚠️", help="Risque moyen"):
+                st.session_state.satisfaction = 6
+                st.rerun()
+        
+        with col3:
+            if st.button("✅", help="Faible risque"):
+                st.session_state.satisfaction = 9
+                st.rerun()
 
 if __name__ == "__main__":
     main()
-
-
-
