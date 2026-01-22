@@ -116,24 +116,90 @@ tab1, tab2, tab3 = st.tabs([
 with tab1:
     st.markdown("### 📊 Prédiction pour un client")
 
+    # --- Cas réels ---
+    cas_reels = {
+        "Choisir un cas...": {},
+        "Client fidèle et satisfait": {
+            "satisfaction": 9,
+            "age": 40,
+            "anciennete": 36,
+            "prix": 3000,
+            "appels": 1,
+            "retards": 0,
+            "service": "Fibre",
+            "contrat": "2 ans"
+        },
+        "Client mécontent avec retards": {
+            "satisfaction": 3,
+            "age": 25,
+            "anciennete": 4,
+            "prix": 5000,
+            "appels": 6,
+            "retards": 3,
+            "service": "Mobile",
+            "contrat": "Mensuel"
+        },
+        "Client moyen": {
+            "satisfaction": 6,
+            "age": 30,
+            "anciennete": 12,
+            "prix": 3500,
+            "appels": 2,
+            "retards": 1,
+            "service": "4G+",
+            "contrat": "1 an"
+        }
+    }
+
+    selected_cas = st.selectbox("📌 Cas réels", list(cas_reels.keys()))
+
+    # --- Colonnes ---
     col1, col2 = st.columns(2)
     with col1:
-        satisfaction = st.slider("Satisfaction", 1, 10, 7)
-        age = st.slider("Âge", 18, 80, 35)
-        anciennete = st.slider("Ancienneté (mois)", 1, 120, 12)
-        prix = st.slider("Prix mensuel (DZD)", 500, 20000, 3500, 100)
-
+        satisfaction = st.slider("Satisfaction", 1, 10, 7, key="satisfaction")
+        age = st.slider("Âge", 18, 80, 35, key="age")
+        anciennete = st.slider("Ancienneté (mois)", 1, 120, 12, key="anciennete")
+        prix = st.slider("Prix mensuel (DZD)", 500, 20000, 3500, 100, key="prix")
     with col2:
-        appels = st.slider("Appels support / mois", 0, 30, 2)
-        retards = st.slider("Retards paiement", 0, 12, 0)
-        service = st.selectbox("Service", ["Mobile", "Fibre", "4G+", "Bundle"])
-        contrat = st.selectbox("Contrat", ["Mensuel", "3 mois", "6 mois", "1 an", "2 ans"])
+        appels = st.slider("Appels support / mois", 0, 30, 2, key="appels")
+        retards = st.slider("Retards paiement", 0, 12, 0, key="retards")
+        service = st.selectbox("Service", ["Mobile", "Fibre", "4G+", "Bundle"], index=0, key="service")
+        contrat = st.selectbox("Contrat", ["Mensuel", "3 mois", "6 mois", "1 an", "2 ans"], index=0, key="contrat")
 
+    # --- Remplissage automatique si un cas est choisi ---
+    if selected_cas != "Choisir un cas...":
+        cas = cas_reels[selected_cas]
+        st.session_state['satisfaction'] = cas['satisfaction']
+        st.session_state['age'] = cas['age']
+        st.session_state['anciennete'] = cas['anciennete']
+        st.session_state['prix'] = cas['prix']
+        st.session_state['appels'] = cas['appels']
+        st.session_state['retards'] = cas['retards']
+        st.session_state['service'] = cas['service']
+        st.session_state['contrat'] = cas['contrat']
+
+        # Mettre à jour les sliders/selectbox avec session_state
+        st.slider("Satisfaction", 1, 10, st.session_state['satisfaction'], key="satisfaction")
+        st.slider("Âge", 18, 80, st.session_state['age'], key="age")
+        st.slider("Ancienneté (mois)", 1, 120, st.session_state['anciennete'], key="anciennete")
+        st.slider("Prix mensuel (DZD)", 500, 20000, st.session_state['prix'], 100, key="prix")
+        st.slider("Appels support / mois", 0, 30, st.session_state['appels'], key="appels")
+        st.slider("Retards paiement", 0, 12, st.session_state['retards'], key="retards")
+        st.selectbox("Service", ["Mobile", "Fibre", "4G+", "Bundle"],
+                     index=["Mobile", "Fibre", "4G+", "Bundle"].index(st.session_state['service']), key="service")
+        st.selectbox("Contrat", ["Mensuel", "3 mois", "6 mois", "1 an", "2 ans"],
+                     index=["Mensuel", "3 mois", "6 mois", "1 an", "2 ans"].index(st.session_state['contrat']), key="contrat")
+
+    # --- Bouton calcul ---
     if st.button("🚀 Calculer"):
         r = calculer_risque_churn(satisfaction, age, anciennete, prix, appels, retards, service, contrat)
         st.markdown(f"""
         <div class="info-card {r['classe']}">
         <h2>{r['niveau']} – {int(r['probabilite']*100)}%</h2>
+        <ul>
+        {''.join([f'<li>✅ {p}</li>' for p in r['positifs']])}
+        {''.join([f'<li>⚠️ {n}</li>' for n in r['negatifs']])}
+        </ul>
         </div>
         """, unsafe_allow_html=True)
 
