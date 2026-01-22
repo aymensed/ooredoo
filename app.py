@@ -234,7 +234,7 @@ def main():
     st.markdown("""
     <div class="main-header">
         <h1>📱 Aymen Telecom</h1>
-        <p>"Plateforme de Détection du Risque de Perte Client</p>
+        <p>Plateforme de Détection du Risque de Perte Client</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -356,5 +356,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
