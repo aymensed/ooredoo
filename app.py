@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 
 # ================= CONFIG =================
 st.set_page_config(
-    page_title="OOREDOO Algérie - Prédiction Churn",
+    page_title="Aymen Telecom",
     page_icon="📱",
     layout="wide"
 )
@@ -100,8 +100,8 @@ def calculer_risque_churn(satisfaction, age, anciennete, prix, appels, retards, 
 # ================= HEADER =================
 st.markdown("""
 <div class="main-header">
-<h1>📱 OOREDOO ALGÉRIE</h1>
-<p>Prédiction intelligente du churn client</p>
+<h1>📱 Aymen Telecom</h1>
+<p>Plateforme de Détection du Risque de Perte Client</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -208,3 +208,4 @@ with tab3:
             df_out.to_csv(index=False, encoding="utf-8-sig"),
             "liste_clients_churn.csv"
         )
+
