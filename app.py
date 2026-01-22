@@ -1,232 +1,116 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-from datetime import datetime
-import altair as alt
-import json
-import base64
-from io import BytesIO
+# Ajouter ces imports au début
+import sqlite3
+import io
+import tempfile
 
-# Configuration de la page
-st.set_page_config(
-    page_title="Plateforme de Détection du Risque de Perte Client",
-    page_icon="📱",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Ajouter après la fonction analyser_sentiment
+def importer_fichier_csv(uploaded_file):
+    """Importe et traite un fichier CSV"""
+    try:
+        df = pd.read_csv(uploaded_file, encoding='utf-8')
+        return df
+    except:
+        try:
+            df = pd.read_csv(uploaded_file, encoding='latin1')
+            return df
+        except Exception as e:
+            st.error(f"Erreur d'import: {e}")
+            return None
 
-# CSS personnalisé
-st.markdown("""
-<style>
-    .main-header {
-        background: linear-gradient(135deg, #E30613 0%, #C40511 100%);
-        color: white;
-        text-align: center;
-        padding: 2rem;
-        border-radius: 15px;
-        margin-bottom: 2rem;
-        box-shadow: 0 4px 20px rgba(227, 6, 19, 0.3);
-    }
-    
-    .main-header h1 {
-        margin: 0;
-        font-size: 2.8rem;
-        font-weight: 800;
-    }
-    
-    .info-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        margin-bottom: 1.5rem;
-        border: 1px solid #e9ecef;
-    }
-    
-    .risk-high {
-        background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
-        border-left: 6px solid #f44336 !important;
-    }
-    
-    .risk-medium {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-        border-left: 6px solid #ff9800 !important;
-    }
-    
-    .risk-low {
-        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-        border-left: 6px solid #4caf50 !important;
-    }
-    
-    .metric-big {
-        font-size: 4rem;
-        font-weight: 900;
-        text-align: center;
-        margin: 1rem 0;
-    }
-    
-    .stButton > button {
-        background: linear-gradient(135deg, #E30613 0%, #C40511 100%);
-        color: white;
-        border: none;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        border-radius: 8px;
-        font-size: 1rem;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Dictionnaire multilingue
-LEXIQUE_EMOTION = {
-    "positif": [
-        "mlih","bahi","mzyan","raqi","merh","saye7","tayeb","mabsout",
-        "جيد","ممتاز","شكرا","سريع","سعيد","مرحبا",
-        "merci","excellent","rapide","parfait","bien","satisfait",
-        "good","excellent","perfect","fast","thank you","satisfied"
-    ],
-    "negatif": [
-        "machi mliha","da3if","karitha","ta3 ta3b","ma3tal",
-        "سيء","ضعيف","بطيء","معطل","مقلق",
-        "lent","problème","mauvais","nul","cher","insatisfait",
-        "bad","slow","problem","terrible","expensive","not satisfied"
-    ]
-}
-
-def analyser_sentiment(commentaire):
-    """Analyse le sentiment d'un commentaire"""
-    if not commentaire or len(commentaire.strip()) < 3:
+def analyser_base_clients(df):
+    """Analyse une base de clients complète"""
+    if df is None or df.empty:
         return None
     
-    texte = commentaire.lower()
-    score = 0
+    analyses = []
     
-    for mot in LEXIQUE_EMOTION["positif"]:
-        if mot in texte:
-            score += 1
+    for idx, row in df.iterrows():
+        # Analyse de sentiment si colonne commentaire existe
+        satisfaction = 7  # Valeur par défaut
+        
+        if 'commentaire' in df.columns:
+            resultat = analyser_sentiment(str(row.get('commentaire', '')))
+            if resultat:
+                satisfaction = resultat["satisfaction"]
+        
+        # Extraction des valeurs (avec valeurs par défaut)
+        try:
+            age = int(row.get('age', 35))
+            anciennete = int(row.get('anciennete', 12))
+            prix = float(row.get('prix', 3500))
+            appels = int(row.get('appels', 2))
+            retards = int(row.get('retards', 0))
+            service = str(row.get('service', 'Mobile'))
+            contrat = str(row.get('contrat', 'Mensuel'))
+            
+            risque = calculer_risque_churn(
+                satisfaction, age, anciennete, prix, appels, retards, service, contrat
+            )
+            
+            analyses.append({
+                'client_id': row.get('id', idx),
+                'nom': row.get('nom', f'Client_{idx}'),
+                'satisfaction': satisfaction,
+                'probabilite_churn': risque['probabilite'],
+                'niveau_risque': risque['niveau'],
+                'couleur': risque['couleur']
+            })
+        except Exception as e:
+            st.warning(f"Erreur analyse client {idx}: {e}")
     
-    for mot in LEXIQUE_EMOTION["negatif"]:
-        if mot in texte:
-            score -= 1
-    
-    if score <= -2:
-        return {"emotion": "Très négatif 😡", "satisfaction": 2, "couleur": "#f44336"}
-    elif score == -1:
-        return {"emotion": "Négatif 😕", "satisfaction": 4, "couleur": "#ff9800"}
-    elif score == 0:
-        return {"emotion": "Neutre 😐", "satisfaction": 6, "couleur": "#ffc107"}
-    elif score == 1:
-        return {"emotion": "Positif 🙂", "satisfaction": 8, "couleur": "#8bc34a"}
-    else:
-        return {"emotion": "Très positif 😄", "satisfaction": 9.5, "couleur": "#4caf50"}
+    return pd.DataFrame(analyses)
 
-def calculer_risque_churn(satisfaction, age, anciennete, prix, appels, retards, service, contrat):
-    """Calcule le risque de churn"""
-    score = 30
+def generer_rapport(df_analyses):
+    """Génère un rapport complet"""
+    if df_analyses is None or df_analyses.empty:
+        return None
     
-    if satisfaction <= 3: score += 40
-    elif satisfaction <= 5: score += 20
-    elif satisfaction <= 7: score += 10
-    if satisfaction >= 8: score -= 20
+    rapport = {
+        'clients_total': len(df_analyses),
+        'risque_moyen': df_analyses['probabilite_churn'].mean(),
+        'haut_risque': len(df_analyses[df_analyses['probabilite_churn'] >= 0.7]),
+        'risque_eleve': len(df_analyses[(df_analyses['probabilite_churn'] >= 0.5) & (df_analyses['probabilite_churn'] < 0.7)]),
+        'risque_modere': len(df_analyses[(df_analyses['probabilite_churn'] >= 0.3) & (df_analyses['probabilite_churn'] < 0.5)]),
+        'faible_risque': len(df_analyses[df_analyses['probabilite_churn'] < 0.3]),
+        'top_risques': df_analyses.nlargest(10, 'probabilite_churn')
+    }
     
-    if appels >= 5: score += 25
-    elif appels >= 3: score += 15
-    
-    if retards >= 3: score += 30
-    elif retards >= 1: score += 15
-    if retards == 0: score -= 10
-    
-    if anciennete < 6: score += 20
-    if anciennete >= 24: score -= 25
-    
-    if contrat == "Mensuel": score += 15
-    if contrat == "2 ans": score -= 30
-    
-    score = max(5, min(95, score))
-    probabilite = score / 100
-    
-    if probabilite >= 0.7:
-        return {
-            "probabilite": probabilite,
-            "niveau": "🚨 TRÈS ÉLEVÉ",
-            "couleur": "#f44336",
-            "classe": "risk-high",
-            "recommandation": "Contact immédiat requis",
-            "actions": [
-                {"icon": "📞", "titre": "Contact immédiat", "desc": "Appeler dans les 24h"},
-                {"icon": "🎁", "titre": "Offre exclusive", "desc": "30% réduction 6 mois"},
-                {"icon": "👥", "titre": "Gestionnaire dédié", "desc": "Suivi personnalisé"},
-                {"icon": "🔧", "titre": "Audit technique", "desc": "Résolution prioritaire"}
-            ]
-        }
-    elif probabilite >= 0.5:
-        return {
-            "probabilite": probabilite,
-            "niveau": "⚠️ ÉLEVÉ",
-            "couleur": "#ff9800",
-            "classe": "risk-medium",
-            "recommandation": "Offrir promotion sous 7 jours",
-            "actions": [
-                {"icon": "📧", "titre": "Email promotionnel", "desc": "Offre sous 7 jours"},
-                {"icon": "📅", "titre": "Appel de suivi", "desc": "Programmer dans 3 jours"},
-                {"icon": "🔍", "titre": "Analyse historique", "desc": "Examiner problèmes"},
-                {"icon": "💳", "titre": "Prélèvement auto", "desc": "Éviter retards"}
-            ]
-        }
-    elif probabilite >= 0.3:
-        return {
-            "probabilite": probabilite,
-            "niveau": "📊 MODÉRÉ",
-            "couleur": "#ffc107",
-            "classe": "risk-medium",
-            "recommandation": "Surveillance mensuelle",
-            "actions": [
-                {"icon": "📊", "titre": "Suivi mensuel", "desc": "Revue de satisfaction"},
-                {"icon": "🔔", "titre": "Rappel contrat", "desc": "Notification anticipée"},
-                {"icon": "🌟", "titre": "Services +", "desc": "Proposer options"},
-                {"icon": "📋", "titre": "Feedback", "desc": "Demander retours"}
-            ]
-        }
-    else:
-        return {
-            "probabilite": probabilite,
-            "niveau": "✅ FAIBLE",
-            "couleur": "#4caf50",
-            "classe": "risk-low",
-            "recommandation": "Client fidèle",
-            "actions": [
-                {"icon": "⭐", "titre": "Programme VIP", "desc": "Avantages exclusifs"},
-                {"icon": "🎯", "titre": "Services premium", "desc": "Offres spéciales"},
-                {"icon": "🤝", "titre": "Événements", "desc": "Invitations"},
-                {"icon": "📈", "titre": "Advocacy", "desc": "Témoignages"}
-            ]
-        }
+    return rapport
 
-def creer_jauge_altair(probabilite, couleur):
-    """Crée une jauge avec Altair"""
-    data = pd.DataFrame({
-        'value': [probabilite * 100],
-        'max': [100]
-    })
+def telecharger_resultats(df_analyses):
+    """Prépare les résultats pour téléchargement"""
+    output = io.BytesIO()
     
-    base = alt.Chart(data).encode(
-        theta=alt.Theta("value:Q", stack=True),
-        color=alt.ColorValue(couleur),
-        tooltip=['value']
-    )
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_analyses.to_excel(writer, sheet_name='Analyse_Churn', index=False)
+        
+        # Ajouter un résumé
+        rapport = generer_rapport(df_analyses)
+        if rapport:
+            df_rapport = pd.DataFrame({
+                'Métrique': [
+                    'Total clients analysés',
+                    'Probabilité de churn moyenne',
+                    'Clients à haut risque (≥70%)',
+                    'Clients à risque élevé (50-70%)',
+                    'Clients à risque modéré (30-50%)',
+                    'Clients à faible risque (<30%)'
+                ],
+                'Valeur': [
+                    rapport['clients_total'],
+                    f"{rapport['risque_moyen']*100:.1f}%",
+                    rapport['haut_risque'],
+                    rapport['risque_eleve'],
+                    rapport['risque_modere'],
+                    rapport['faible_risque']
+                ]
+            })
+            df_rapport.to_excel(writer, sheet_name='Résumé', index=False)
     
-    gauge = base.mark_arc(innerRadius=80, outerRadius=120)
-    
-    text = alt.Chart(data).mark_text(
-        size=40,
-        fontWeight='bold'
-    ).encode(
-        text=alt.Text('value:Q', format='.0f'),
-        color=alt.ColorValue(couleur)
-    )
-    
-    return gauge + text
+    output.seek(0)
+    return output
 
+# Modifier la fonction main() pour ajouter un nouvel onglet
 def main():
     """Application principale"""
     
@@ -241,9 +125,11 @@ def main():
     # Initialisation
     if 'satisfaction' not in st.session_state:
         st.session_state.satisfaction = 7
+    if 'analyse_batch' not in st.session_state:
+        st.session_state.analyse_batch = None
     
     # Onglets
-    tab1, tab2 = st.tabs(["🧠 ANALYSE SENTIMENT", "📊 SAISIE MANUELLE"])
+    tab1, tab2, tab3 = st.tabs(["🧠 ANALYSE SENTIMENT", "📊 SAISIE MANUELLE", "📁 IMPORT DONNÉES"])
     
     with tab1:
         st.markdown("### Analyse Automatique de Satisfaction")
@@ -284,17 +170,181 @@ def main():
             service = st.selectbox("Service:", ["Mobile", "Fibre"])
             contrat = st.selectbox("Contrat:", ["Mensuel", "3 mois", "1 an", "2 ans"])
     
-    # Bouton calcul
+    with tab3:
+        st.markdown("### 📁 Import de données")
+        
+        option_import = st.radio(
+            "Choisissez le mode d'import:",
+            ["Fichier CSV", "Base de données SQL", "Saisie manuelle multiple"]
+        )
+        
+        if option_import == "Fichier CSV":
+            uploaded_file = st.file_uploader(
+                "Choisissez un fichier CSV",
+                type=['csv'],
+                help="Format attendu: colonnes optionnelles: id, nom, age, anciennete, prix, appels, retards, service, contrat, commentaire"
+            )
+            
+            if uploaded_file is not None:
+                df = importer_fichier_csv(uploaded_file)
+                
+                if df is not None:
+                    st.success(f"✅ {len(df)} clients importés")
+                    
+                    with st.expander("📋 Aperçu des données"):
+                        st.dataframe(df.head(), use_container_width=True)
+                    
+                    if st.button("📊 ANALYSER LA BASE", type="primary"):
+                        with st.spinner("Analyse en cours..."):
+                            df_analyses = analyser_base_clients(df)
+                            
+                            if df_analyses is not None:
+                                st.session_state.analyse_batch = df_analyses
+                                st.success("✅ Analyse terminée!")
+                                
+                                # Afficher les résultats
+                                st.markdown("### 📈 Résultats de l'analyse")
+                                
+                                # Métriques globales
+                                col1, col2, col3, col4 = st.columns(4)
+                                rapport = generer_rapport(df_analyses)
+                                
+                                if rapport:
+                                    with col1:
+                                        st.metric("Total clients", rapport['clients_total'])
+                                    with col2:
+                                        st.metric("Churn moyen", f"{rapport['risque_moyen']*100:.1f}%")
+                                    with col3:
+                                        st.metric("Haut risque", rapport['haut_risque'])
+                                    with col4:
+                                        st.metric("Faible risque", rapport['faible_risque'])
+                                    
+                                    # Graphique de répartition
+                                    st.markdown("### 📊 Répartition des risques")
+                                    df_distribution = pd.DataFrame({
+                                        'Niveau de risque': ['Faible (<30%)', 'Modéré (30-50%)', 'Élevé (50-70%)', 'Très élevé (≥70%)'],
+                                        'Nombre de clients': [
+                                            rapport['faible_risque'],
+                                            rapport['risque_modere'],
+                                            rapport['risque_eleve'],
+                                            rapport['haut_risque']
+                                        ]
+                                    })
+                                    
+                                    chart = alt.Chart(df_distribution).mark_bar().encode(
+                                        x=alt.X('Niveau de risque', sort=None),
+                                        y='Nombre de clients',
+                                        color=alt.Color('Niveau de risque', scale=alt.Scale(
+                                            domain=['Faible (<30%)', 'Modéré (30-50%)', 'Élevé (50-70%)', 'Très élevé (≥70%)'],
+                                            range=['#4caf50', '#ffc107', '#ff9800', '#f44336']
+                                        ))
+                                    )
+                                    st.altair_chart(chart, use_container_width=True)
+                                    
+                                    # Top 10 risques
+                                    st.markdown("### 🚨 Top 10 clients à risque")
+                                    st.dataframe(
+                                        rapport['top_risques'][['client_id', 'nom', 'probabilite_churn', 'niveau_risque']].reset_index(drop=True),
+                                        use_container_width=True,
+                                        column_config={
+                                            'client_id': 'ID Client',
+                                            'nom': 'Nom',
+                                            'probabilite_churn': st.column_config.NumberColumn(
+                                                'Probabilité Churn',
+                                                format='%.1f%%'
+                                            ),
+                                            'niveau_risque': 'Niveau de risque'
+                                        }
+                                    )
+                                    
+                                    # Bouton de téléchargement
+                                    st.markdown("### 💾 Télécharger les résultats")
+                                    excel_data = telecharger_resultats(df_analyses)
+                                    
+                                    st.download_button(
+                                        label="📥 Télécharger rapport Excel",
+                                        data=excel_data,
+                                        file_name=f"analyse_churn_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                    )
+        
+        elif option_import == "Base de données SQL":
+            st.info("Fonctionnalité base de données - à configurer selon votre environnement")
+            
+            # Exemple de connexion SQLite
+            db_file = st.file_uploader("Base SQLite (.db)", type=['db'])
+            
+            if db_file:
+                # Créer un fichier temporaire
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.db') as tmp:
+                    tmp.write(db_file.getvalue())
+                    tmp_path = tmp.name
+                
+                try:
+                    conn = sqlite3.connect(tmp_path)
+                    tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table';", conn)
+                    
+                    if not tables.empty:
+                        selected_table = st.selectbox("Sélectionnez la table:", tables['name'].tolist())
+                        
+                        if selected_table:
+                            df_db = pd.read_sql(f"SELECT * FROM {selected_table} LIMIT 1000", conn)
+                            st.dataframe(df_db.head(), use_container_width=True)
+                            
+                            if st.button("📊 ANALYSER BASE SQL"):
+                                st.info("Implémentez l'analyse spécifique à votre schéma de base")
+                    conn.close()
+                except Exception as e:
+                    st.error(f"Erreur connexion base: {e}")
+        
+        else:  # Saisie manuelle multiple
+            st.markdown("### Saisie de plusieurs clients")
+            
+            with st.form("form_multiple_clients"):
+                num_clients = st.number_input("Nombre de clients", min_value=1, max_value=50, value=3)
+                
+                clients_data = []
+                for i in range(int(num_clients)):
+                    st.markdown(f"#### Client {i+1}")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        nom = st.text_input(f"Nom Client {i+1}", value=f"Client_{i+1}")
+                        satisfaction = st.slider(f"Satisfaction {i+1}", 1, 10, 7, key=f"sat_{i}")
+                        age = st.slider(f"Âge {i+1}", 18, 70, 35, key=f"age_{i}")
+                    
+                    with col2:
+                        anciennete = st.slider(f"Ancienneté {i+1}", 1, 60, 12, key=f"anc_{i}")
+                        appels = st.slider(f"Appels {i+1}", 0, 20, 2, key=f"app_{i}")
+                        retards = st.slider(f"Retards {i+1}", 0, 10, 0, key=f"ret_{i}")
+                    
+                    clients_data.append({
+                        'nom': nom,
+                        'satisfaction': satisfaction,
+                        'age': age,
+                        'anciennete': anciennete,
+                        'appels': appels,
+                        'retards': retards
+                    })
+                
+                submitted = st.form_submit_button("ANALYSER LES CLIENTS")
+                
+                if submitted:
+                    df_multiple = pd.DataFrame(clients_data)
+                    df_analyses = analyser_base_clients(df_multiple)
+                    st.session_state.analyse_batch = df_analyses
+                    st.success(f"✅ {len(df_analyses)} clients analysés!")
+    
+    # Bouton calcul pour l'analyse individuelle
     if st.button("🚀 CALCULER RISQUE", use_container_width=True):
         risque = calculer_risque_churn(
             satisfaction, age, anciennete, prix, appels, retards, service, contrat
         )
         
-        # Résultats
+        # Reste du code inchangé...
         st.markdown("---")
         st.markdown("## 📊 RÉSULTATS")
         
-        # Affichage métrique principale
         col_met1, col_met2, col_met3 = st.columns([2, 1, 2])
         
         with col_met2:
@@ -307,12 +357,10 @@ def main():
             </h2>
             """, unsafe_allow_html=True)
         
-        # Jauge Altair
         st.markdown("### 📈 Niveau de risque")
         chart = creer_jauge_altair(risque['probabilite'], risque['couleur'])
         st.altair_chart(chart, use_container_width=True)
         
-        # Recommandations
         st.markdown(f"""
         <div class="info-card {risque['classe']}">
             <h3>💡 Recommandation</h3>
@@ -320,7 +368,6 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # Actions
         st.markdown("### 🎯 Actions recommandées")
         cols = st.columns(4)
         for idx, action in enumerate(risque['actions']):
@@ -342,6 +389,11 @@ def main():
         st.metric("Précision", "92%")
         st.metric("Clients analysés", "1,247")
         st.metric("Churn moyen", "18%")
+        
+        if st.session_state.analyse_batch is not None:
+            st.markdown("---")
+            st.markdown("### 📁 Dernière analyse")
+            st.info(f"{len(st.session_state.analyse_batch)} clients traités")
         
         st.markdown("---")
         st.markdown("### 💡 Exemples")
