@@ -1,276 +1,177 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from datetime import datetime
 import plotly.graph_objects as go
 
-# ================= CONFIG =================
+# --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
-    page_title="OOREDOO Algérie - Prédiction Churn",
+    page_title="OOREDOO Algérie - Prédiction de Churn",
     page_icon="📱",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# ================= CSS =================
-st.markdown("""
-<style>
-.main-header {
-    background: linear-gradient(135deg, #E30613, #C40511);
-    color: white;
-    text-align: center;
-    padding: 2rem;
-    border-radius: 15px;
+# --- LEXIQUE POUR ANALYSE DE SENTIMENT ---
+LEXIQUE_EMOTION = {
+    "positif": ["mlih","bahi","mzyan","sahl","raqi","merh","fr7an","saye7","tayeb","mabsout",
+                "merci","excellent","parfait","good","awesome","fantastic","super"],
+    "negatif": ["machi mliha","da3if","karitha","ta3 ta3b","raho bti2","ma3tal",
+                "mauvais","lent","bad","problem","terrible","horrible"]
 }
-.info-card {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    margin-bottom: 1rem;
-}
-.risk-high {border-left: 6px solid #f44336;}
-.risk-medium {border-left: 6px solid #ff9800;}
-.risk-low {border-left: 6px solid #4caf50;}
-</style>
-""", unsafe_allow_html=True)
 
-# ================= FONCTION CHURN =================
+# --- FONCTIONS ---
+def analyser_sentiment(commentaire):
+    if not commentaire or len(commentaire.strip()) < 3:
+        return None
+    texte = commentaire.lower()
+    score = 0
+    mots_positifs, mots_negatifs = [], []
+
+    for mot in LEXIQUE_EMOTION["positif"]:
+        if mot in texte:
+            score += 1
+            mots_positifs.append(mot)
+    for mot in LEXIQUE_EMOTION["negatif"]:
+        if mot in texte:
+            score -= 1
+            mots_negatifs.append(mot)
+    
+    if score <= -2:
+        emotion, satisfaction, couleur = "Très négatif 😡", 2, "#f44336"
+    elif score == -1:
+        emotion, satisfaction, couleur = "Négatif 😕", 4, "#ff9800"
+    elif score == 0:
+        emotion, satisfaction, couleur = "Neutre 😐", 6, "#ffc107"
+    elif score == 1:
+        emotion, satisfaction, couleur = "Positif 🙂", 8, "#8bc34a"
+    else:
+        emotion, satisfaction, couleur = "Très positif 😄", 9.5, "#4caf50"
+    
+    return {
+        "emotion": emotion,
+        "satisfaction": satisfaction,
+        "couleur": couleur,
+        "score": score,
+        "mots_positifs": mots_positifs,
+        "mots_negatifs": mots_negatifs
+    }
+
 def calculer_risque_churn(satisfaction, age, anciennete, prix, appels, retards, service, contrat):
     score = 30
-    pos, neg = [], []
+    facteurs_positifs, facteurs_negatifs = [], []
 
-    if satisfaction <= 3:
-        score += 40; neg.append("Satisfaction très faible")
-    elif satisfaction <= 5:
-        score += 20; neg.append("Satisfaction faible")
-    elif satisfaction <= 7:
-        score += 10
-    else:
-        score -= 20; pos.append("Bonne satisfaction")
-
-    if appels >= 5:
-        score += 25; neg.append("Appels support fréquents")
-    elif appels >= 3:
-        score += 15
-
-    if retards >= 3:
-        score += 30; neg.append("Retards répétés")
-    elif retards >= 1:
-        score += 15
-    else:
-        score -= 10; pos.append("Paiements réguliers")
-
-    if anciennete < 6:
-        score += 20
-    elif anciennete >= 24:
-        score -= 25; pos.append("Client fidèle")
-
-    if contrat == "Mensuel":
-        score += 15
-    elif contrat == "2 ans":
-        score -= 30; pos.append("Contrat long")
-
-    if service == "Fibre":
-        score -= 5; pos.append("Service fibre")
-
-    if prix > 6000:
-        score += 10; neg.append("Prix élevé")
-    elif prix < 2000:
-        score -= 5; pos.append("Prix compétitif")
-
+    # Satisfaction
+    if satisfaction <= 3: score += 40; facteurs_negatifs.append("Satisfaction très faible")
+    elif satisfaction <= 5: score += 20; facteurs_negatifs.append("Satisfaction faible")
+    elif satisfaction <= 7: score += 10; facteurs_negatifs.append("Satisfaction moyenne")
+    if satisfaction >= 8: score -= 20; facteurs_positifs.append("Bonne satisfaction")
+    
+    # Appels support
+    if appels >= 5: score += 25; facteurs_negatifs.append("Appels support fréquents")
+    elif appels >= 3: score += 15; facteurs_negatifs.append("Appels support réguliers")
+    
+    # Retards paiement
+    if retards >= 3: score += 30; facteurs_negatifs.append("Retards de paiement répétés")
+    elif retards >= 1: score += 15; facteurs_negatifs.append("Retards de paiement occasionnels")
+    if retards == 0: score -= 10; facteurs_positifs.append("Aucun retard de paiement")
+    
+    # Ancienneté
+    if anciennete < 6: score += 20; facteurs_negatifs.append("Ancienneté faible")
+    if anciennete >= 24: score -= 25; facteurs_positifs.append("Ancienneté élevée")
+    
+    # Contrat
+    if contrat == "Mensuel": score += 15; facteurs_negatifs.append("Contrat mensuel")
+    if contrat == "2 ans": score -= 30; facteurs_positifs.append("Contrat long terme")
+    
+    # Service
+    if service == "Fibre": score -= 5; facteurs_positifs.append("Client fibre")
+    
+    # Âge
+    if age > 50: score -= 5; facteurs_positifs.append("Client senior")
+    elif age < 25: score += 5; facteurs_negatifs.append("Client jeune")
+    
     score = max(5, min(95, score))
-    p = score / 100
+    probabilite = score / 100
 
-    if p >= 0.7:
-        niveau, cls = "🚨 TRÈS ÉLEVÉ", "risk-high"
-    elif p >= 0.5:
-        niveau, cls = "⚠️ ÉLEVÉ", "risk-medium"
-    elif p >= 0.3:
-        niveau, cls = "📊 MODÉRÉ", "risk-medium"
-    else:
-        niveau, cls = "✅ FAIBLE", "risk-low"
+    # Détermination niveau de risque
+    if probabilite >= 0.7: niveau, couleur, classe, priorite, reco = "🚨 TRÈS ÉLEVÉ","#f44336","risk-high","HAUTE PRIORITÉ","Contact immédiat requis"
+    elif probabilite >= 0.5: niveau, couleur, classe, priorite, reco = "⚠️ ÉLEVÉ","#ff9800","risk-medium","PRIORITÉ MOYENNE-HAUTE","Offrir promotion sous 7 jours"
+    elif probabilite >= 0.3: niveau, couleur, classe, priorite, reco = "📊 MODÉRÉ","#ffc107","risk-medium","PRIORITÉ MOYENNE","Surveillance mensuelle"
+    else: niveau, couleur, classe, priorite, reco = "✅ FAIBLE","#4caf50","risk-low","PRIORITÉ BASSE","Client fidèle"
 
     return {
-        "probabilite": p,
+        "probabilite": probabilite,
+        "score": score,
         "niveau": niveau,
-        "classe": cls,
-        "positifs": pos,
-        "negatifs": neg
+        "couleur": couleur,
+        "classe": classe,
+        "priorite": priorite,
+        "recommandation": reco,
+        "facteurs_positifs": facteurs_positifs,
+        "facteurs_negatifs": facteurs_negatifs
     }
 
-# ================= HEADER =================
-st.markdown("""
-<div class="main-header">
-<h1>📱 OOREDOO ALGÉRIE</h1>
-<p>Prédiction intelligente du churn client</p>
-</div>
-""", unsafe_allow_html=True)
-
-# ================= TABS =================
-tab1, tab2, tab3 = st.tabs([
-    "📊 Client unique",
-    "📁 Import fichier",
-    "🧾 Liste de clients"
-])
-
-# ================= TAB 1 =================
-with tab1:
-    st.markdown("### 📊 Prédiction pour un client")
-
-    # --- Cas réels ---
-    cas_reels = {
-        "Choisir un cas...": {},
-        "Client fidèle et satisfait": {
-            "satisfaction": 9,
-            "age": 40,
-            "anciennete": 36,
-            "prix": 3000,
-            "appels": 1,
-            "retards": 0,
-            "service": "Fibre",
-            "contrat": "2 ans"
-        },
-        "Client mécontent avec retards": {
-            "satisfaction": 3,
-            "age": 25,
-            "anciennete": 4,
-            "prix": 5000,
-            "appels": 6,
-            "retards": 3,
-            "service": "Mobile",
-            "contrat": "Mensuel"
-        },
-        "Client moyen": {
-            "satisfaction": 6,
-            "age": 30,
-            "anciennete": 12,
-            "prix": 3500,
-            "appels": 2,
-            "retards": 1,
-            "service": "4G+",
-            "contrat": "1 an"
+def creer_jauge(probabilite, couleur, titre):
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=probabilite*100,
+        domain={'x':[0,1],'y':[0,1]},
+        title={'text': titre, 'font': {'color': couleur, 'size':24}},
+        gauge={
+            'axis': {'range':[0,100]},
+            'bar': {'color': couleur, 'thickness':0.4},
+            'steps':[{'range':[0,30],'color':'#e8f5e9'},
+                     {'range':[30,50],'color':'#fff3e0'},
+                     {'range':[50,70],'color':'#ffe0b2'},
+                     {'range':[70,100],'color':'#ffcdd2'}],
+            'threshold': {'line':{'color':'black','width':4}, 'thickness':0.8, 'value':probabilite*100}
         }
-    }
+    ))
+    fig.update_layout(height=350, margin=dict(t=20,b=20,l=20,r=20), paper_bgcolor='rgba(0,0,0,0)')
+    return fig
 
-    selected_cas = st.selectbox("📌 Cas réels", list(cas_reels.keys()))
+# --- MAIN ---
+def main():
+    st.title("📱 OOREDOO Algérie - Prédiction Churn")
+    
+    # Onglets
+    tab1, tab2 = st.tabs(["🧠 Analyse de Sentiment", "📊 Saisie Manuelle"])
+    
+    with tab1:
+        commentaire = st.text_area("Commentaire client:", height=150)
+        col1, col2, col3, col4 = st.columns(4)
+        if col1.button("🔥 Client mécontent"): commentaire="Service terrible, très lent!"
+        if col2.button("⚠️ Client moyen"): commentaire="Service correct, quelques coupures"
+        if col3.button("✅ Client satisfait"): commentaire="Excellent service, très satisfait"
+        if col4.button("🌟 Client fidèle"): commentaire="خدمة ممتازة وراقية منذ 3 سنوات!"
+        
+        if st.button("🔍 Analyser le sentiment"):
+            resultat = analyser_sentiment(commentaire)
+            if resultat:
+                st.success(f"Satisfaction calculée: {resultat['satisfaction']}/10 | {resultat['emotion']}")
+                st.session_state.satisfaction_calculee = resultat['satisfaction']
+    
+    with tab2:
+        satisfaction = st.slider("Satisfaction", 1, 10, int(st.session_state.satisfaction_calculee) if 'satisfaction_calculee' in st.session_state else 7)
+        age = st.slider("Âge",18,80,35)
+        anciennete = st.slider("Ancienneté (mois)",1,120,12)
+        prix = st.slider("Prix mensuel (DZD)",500,20000,3500)
+        appels = st.slider("Appels support/mois",0,30,2)
+        retards = st.slider("Retards paiement",0,12,0)
+        service = st.selectbox("Type de service", ["Mobile","Fibre","4G+","Bundle"])
+        contrat = st.selectbox("Type de contrat", ["Mensuel","3 mois","6 mois","1 an","2 ans"])
+        
+        if st.button("🚀 Calculer le risque de churn"):
+            risque = calculer_risque_churn(satisfaction, age, anciennete, prix, appels, retards, service, contrat)
+            st.metric("Probabilité de churn", f"{risque['probabilite']*100:.0f}%")
+            st.markdown(f"**Niveau:** {risque['niveau']} | **Priorité:** {risque['priorite']}")
+            st.plotly_chart(creer_jauge(risque['probabilite'], risque['couleur'], risque['niveau']))
+            
+            st.subheader("🔍 Points de vigilance")
+            for f in risque['facteurs_negatifs']: st.write(f"❌ {f}")
+            st.subheader("🟢 Points forts")
+            for f in risque['facteurs_positifs']: st.write(f"✅ {f}")
 
-    # --- Colonnes ---
-    col1, col2 = st.columns(2)
-    with col1:
-        satisfaction = st.slider("Satisfaction", 1, 10, 7, key="satisfaction")
-        age = st.slider("Âge", 18, 80, 35, key="age")
-        anciennete = st.slider("Ancienneté (mois)", 1, 120, 12, key="anciennete")
-        prix = st.slider("Prix mensuel (DZD)", 500, 20000, 3500, 100, key="prix")
-    with col2:
-        appels = st.slider("Appels support / mois", 0, 30, 2, key="appels")
-        retards = st.slider("Retards paiement", 0, 12, 0, key="retards")
-        service = st.selectbox("Service", ["Mobile", "Fibre", "4G+", "Bundle"], index=0, key="service")
-        contrat = st.selectbox("Contrat", ["Mensuel", "3 mois", "6 mois", "1 an", "2 ans"], index=0, key="contrat")
-
-    # --- Remplissage automatique si un cas est choisi ---
-    if selected_cas != "Choisir un cas...":
-        cas = cas_reels[selected_cas]
-        st.session_state['satisfaction'] = cas['satisfaction']
-        st.session_state['age'] = cas['age']
-        st.session_state['anciennete'] = cas['anciennete']
-        st.session_state['prix'] = cas['prix']
-        st.session_state['appels'] = cas['appels']
-        st.session_state['retards'] = cas['retards']
-        st.session_state['service'] = cas['service']
-        st.session_state['contrat'] = cas['contrat']
-
-        # Mettre à jour les sliders/selectbox avec session_state
-        st.slider("Satisfaction", 1, 10, st.session_state['satisfaction'], key="satisfaction")
-        st.slider("Âge", 18, 80, st.session_state['age'], key="age")
-        st.slider("Ancienneté (mois)", 1, 120, st.session_state['anciennete'], key="anciennete")
-        st.slider("Prix mensuel (DZD)", 500, 20000, st.session_state['prix'], 100, key="prix")
-        st.slider("Appels support / mois", 0, 30, st.session_state['appels'], key="appels")
-        st.slider("Retards paiement", 0, 12, st.session_state['retards'], key="retards")
-        st.selectbox("Service", ["Mobile", "Fibre", "4G+", "Bundle"],
-                     index=["Mobile", "Fibre", "4G+", "Bundle"].index(st.session_state['service']), key="service")
-        st.selectbox("Contrat", ["Mensuel", "3 mois", "6 mois", "1 an", "2 ans"],
-                     index=["Mensuel", "3 mois", "6 mois", "1 an", "2 ans"].index(st.session_state['contrat']), key="contrat")
-
-    # --- Bouton calcul ---
-    if st.button("🚀 Calculer"):
-        r = calculer_risque_churn(satisfaction, age, anciennete, prix, appels, retards, service, contrat)
-        st.markdown(f"""
-        <div class="info-card {r['classe']}">
-        <h2>{r['niveau']} – {int(r['probabilite']*100)}%</h2>
-        <ul>
-        {''.join([f'<li>✅ {p}</li>' for p in r['positifs']])}
-        {''.join([f'<li>⚠️ {n}</li>' for n in r['negatifs']])}
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
-
-# ================= TAB 2 =================
-with tab2:
-    st.markdown("### 📁 Prédiction par fichier")
-
-    fichier = st.file_uploader("Importer CSV ou Excel", type=["csv", "xlsx"])
-
-    if fichier:
-        df = pd.read_csv(fichier) if fichier.name.endswith(".csv") else pd.read_excel(fichier)
-        st.dataframe(df.head())
-
-        if st.button("🚀 Lancer prédiction fichier"):
-            results = []
-            for _, row in df.iterrows():
-                r = calculer_risque_churn(
-                    row["satisfaction"], row["age"], row["anciennete"],
-                    row["prix"], row["appels"], row["retards"],
-                    row["service"], row["contrat"]
-                )
-                results.append({
-                    "Churn_%": round(r["probabilite"]*100,1),
-                    "Niveau": r["niveau"]
-                })
-
-            df_out = pd.concat([df, pd.DataFrame(results)], axis=1)
-            st.dataframe(df_out)
-
-            st.download_button(
-                "⬇️ Télécharger",
-                df_out.to_csv(index=False, encoding="utf-8-sig"),
-                "prediction_churn.csv"
-            )
-
-# ================= TAB 3 =================
-with tab3:
-    st.markdown("### 🧾 Saisie d'une liste de clients")
-
-    df_input = st.data_editor(
-        pd.DataFrame({
-            "satisfaction":[7],
-            "age":[35],
-            "anciennete":[12],
-            "prix":[3500],
-            "appels":[2],
-            "retards":[0],
-            "service":["Fibre"],
-            "contrat":["1 an"]
-        }),
-        num_rows="dynamic"
-    )
-
-    if st.button("🚀 Calculer la liste"):
-        results = []
-        for _, row in df_input.iterrows():
-            r = calculer_risque_churn(
-                row["satisfaction"], row["age"], row["anciennete"],
-                row["prix"], row["appels"], row["retards"],
-                row["service"], row["contrat"]
-            )
-            results.append({
-                "Churn_%": round(r["probabilite"]*100,1),
-                "Niveau": r["niveau"]
-            })
-
-        df_out = pd.concat([df_input, pd.DataFrame(results)], axis=1)
-        st.dataframe(df_out)
-
-        st.download_button(
-            "⬇️ Télécharger CSV",
-            df_out.to_csv(index=False, encoding="utf-8-sig"),
-            "liste_clients_churn.csv"
-        )
+if __name__=="__main__":
+    main()
